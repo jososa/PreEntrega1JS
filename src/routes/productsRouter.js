@@ -1,135 +1,62 @@
 import { Router } from "express"
 import fs from "fs"
+import { ProductManager } from '../controllers/ProductManager.js'
+
+const productos = new ProductManager()
 
 const productsRouter = Router()
 
 productsRouter.get("/", async (req, res) => {
-    try {
-        const limit = req.query.limit ? parseInt(req.query.limit) : null
-        const prod = fs.readFileSync("./src/data/Products.json")
-        const products = JSON.parse(prod);
-        let allProd = products;
-        if (limit) {
-            allProd = products.slice(0, limit)
-        }
-        
-        res.send(allProd);
-    } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
-    }
+    const getProd = await productos.getProducts()
+    let limit = parseInt(req.query.limit)
+    if(!limit) return res.send(await getProd)
+    let allProd = await getProd
+    let prodLimit = allProd.slice(0,limit)
+    res.send(prodLimit)
 })
 
 productsRouter.get("/:prodId", async (req, res) => {
-    try {
-        const prodId = parseInt(req.params.prodId)
-        const prod = fs.readFileSync("./src/data/Products.json");
-        const productos = JSON.parse(prod)
-        
-        const product = productos.find(producto => producto.id === prodId)
-        
-        if (!product) {
-            res.status(404).json({ error: "Producto no encontrado" })
-        } else {
-            res.json(product);
-        }
-    } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
-    }
+    const getProd = await productos.getProducts()
+    let prodId = parseInt(req.params.prodId)
+    let allProd = await getProd
+    let prod = allProd.find((product) => (product.id == prodId))
+    if(!prod) return res.json({ error: "Producto no encontrado" })
+    res.send(prod)
 })
 
 productsRouter.post("/", async (req, res) => {
+    const newProduct = req.body;
     try {
-        const {
-            title,
-            description,
-            code,
-            price,
-            stock,
-            category,
-            thumbnail
-        } = req.body
-
-        if (!title || !description || !code || !price || !stock || !category) {
-            return res.status(400).json({ error: "Todos los campos son obligatorios." })
-        }
-
-        const prod = fs.readFileSync("./src/data/Products.json")
-        const products = JSON.parse(prod)
-        
-        const newProduct = {
-            id: products.length + 1,
-            title,
-            description,
-            code,
-            price,
-            status: true,
-            stock,
-            category,
-            thumbnail
-        }
-
-        products.push(newProduct)
-
-        fs.writeFileSync("./src/data/Products.json", JSON.stringify(products, null, 2))
-
-        res.status(200).json({ message: "Producto agregado" })
+      await productos.addProduct(newProduct)
+      res.json({message: "Producto agregado"})
     } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
+      res.status(500).json({ error: error.message })
     }
 })
 
 productsRouter.put("/:prodId", async (req, res) => {
+
+    const productId = req.params.prodId
+    const updatedFields = req.body
     try {
-        const prodId = parseInt(req.params.prodId)
-        const prodField = req.body
-
-        const rawData = fs.readFileSync("./src/data/Products.json")
-        let products = JSON.parse(rawData)
-
-        const index = products.findIndex(product => product.id === prodId)
-        
-        if (index === -1) {
-            return res.status(404).json({ error: "Producto no encontrado" })
-        }
-
-        const updatedProduct = { ...products[index] }
-
-        for (const field in prodField) {
-            if (field !== "id") { 
-                updatedProduct[field] = prodField[field]
-            }
-        }
-
-        products[index] = updatedProduct
-
-        fs.writeFileSync("./src/data/Products.json", JSON.stringify(products, null, 2))
-
-        res.json({ message: "Producto actualizado" })
+      const updatedProduct = await productos.updateProduct(
+        productId,
+        updatedFields
+      );
+      res.json({ status: "Producto actualizado", updatedProduct })
     } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
+      res.status(400).json({ error: error.message })
     }
 })
 
 productsRouter.delete("/:prodId", async (req, res) => {
+
+    const productId = req.params.prodId
     try {
-        const prodId = parseInt(req.params.prodId)
-
-        const prod = fs.readFileSync("./src/data/Products.json")
-        let products = JSON.parse(prod)
-
-        const index = products.findIndex(product => product.id === prodId)
-        
-        if (index === -1) {
-            return res.status(404).json({ error: "Producto no encontrado" })
-        }
-
-        products.splice(index, 1)
-
-        fs.writeFileSync("./src/data/Products.json", JSON.stringify(products, null, 2))
-
-        res.json({ message: "Producto eliminado" })
+      await productos.deleteProduct(productId)
+      res.json({ status: "Producto eliminado" })
     } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
+      res.status(400).json({ error: error.message })
     }
 })
 

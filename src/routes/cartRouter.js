@@ -1,86 +1,45 @@
 import { Router } from "express"
 import fs from "fs"
+import { CartManager } from '../controllers/CartManager.js'
+
+const carrito = new CartManager()
 
 const cartRouter = Router()
 
 cartRouter.post("/", async (req, res) => {
+
     try {
-        const cart = fs.readFileSync("./src/data/Cart.json")
-        const carts = JSON.parse(cart);
-        
-        const cartId = carts.length + 1
-
-        const newCart = {
-            id: cartId,
-            products: []
-        }
-        
-        carts.push(newCart)
-        
-        fs.writeFileSync("./src/data/Cart.json", JSON.stringify(carts, null, 2))
-
-        res.status(201).json({ message: "Carrito creado"})
-
+        const newCart = await carrito.createCart();
+        res.status(201).send({ status: "Carrito creado", payload: newCart })
     } catch (error) {
-        console.error("Error al crear el carrito:", error)
-        res.status(500).json({ error: "Internal Server Error" })
+        console.log(error)
+        res.status(500).send({ status: "Error al crear el carrito",  error: error.message })
     }
 })
 
 
 cartRouter.get("/:cid", async (req, res) => {
+
     try {
-        const cid = parseInt(req.params.cid)
-        
-        const cartData = fs.readFileSync("./src/data/Cart.json")
-        const carts = JSON.parse(cartData);
-        
-        const cart = carts.find(cart => cart.id === cid)
-        
-        if (!cart) {
-            res.status(404).json({ error: "Carrito no encontrado" })
-        } else {
-            res.json(cart);
-        }
+        const cid = req.params.cid;
+        const cart = await carrito.getCartById(cid)
+        res.json(cart)
+
     } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
+        console.log(error)
+        res.status(500).send({ status: "Internal Server Error",  error: error.message})
     }
 })
 
 cartRouter.post("/:cid/product/:prodId", async (req, res) => {
+
+    const { cid, prodId } = req.params;
+
     try {
-        const cid = parseInt(req.params.cid);
-        const prodId = parseInt(req.params.prodId);
-        let itemQuantity  = 1
-
-        const cartData = fs.readFileSync("./src/data/Cart.json")
-        let carts = JSON.parse(cartData)
-
-        const cartIndex = carts.findIndex(cart => cart.id === cid)
-
-        if (cartIndex === -1) {
-            return res.status(404).json({ error: "Carrito o producto no encontrado" })
-        }
-
-        const productToAdd = {
-            product: prodId,
-            quantity: parseInt(itemQuantity)
-        }
-
-        const existingProductIndex = carts[cartIndex].products.findIndex(item => item.product === prodId)
-
-        if (existingProductIndex !== -1) {
-
-            carts[cartIndex].products[existingProductIndex].quantity += parseInt(itemQuantity)
-        } else {
-            carts[cartIndex].products.push(productToAdd)
-        }
-
-        fs.writeFileSync("./src/data/Cart.json", JSON.stringify(carts, null, 2))
-
-        res.json({ message: "Producto agregado al carrito" })
+      const updatedCart = await carrito.addProductsToCart(cid, prodId)
+      res.status(201).send({ status: "Producto agregado al carrito" })
     } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" })
+        res.status(500).send({ status: "Internal Server Error",  error: error.message })
     }
 })
 
